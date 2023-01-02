@@ -3,32 +3,27 @@ import numpy as np
 from plotnine import *
 import io
 from tensorflow.keras.utils import load_img, img_to_array, array_to_img
+from tensorflow.image import resize
 
-def ggplot_to_numpy_array(gg, grayscale=True, ggsave_args={}):
+def ggplot_to_numpy_array(gg, grayscale=True, resize_to=None, ggsave_args={}):
     '''
     Return a ggplot object (plotnine) as a numpy array. 
     Optionally reduce the image to grayscale first. 
+    Any args to gg.save can be passed to `ggsave_args` as a dictonary
     '''
     buffer = io.BytesIO()
     gg.save(buffer, **ggsave_args)
     im = load_img(buffer)  
+
     if grayscale:
         im = im.convert('L')
-        return np.squeeze(img_to_array(im))  # Remove the size 1 color dimension we get because of grayscale
-    return img_to_array(im)
+    arr = img_to_array(im)
+    if not resize_to is None:
+        arr = resize(arr, resize_to) 
 
-def plot_image_array(ar):
-    '''
-    Helper function to plot an image stored as a numpy array. `array_to_img` needs
-    a color channel, i.e. a shape of (x,y,no_colors). Normally this is 3, but for gray
-    scale images I chose to omit the color channel altogether. To be able to plot the 
-    array however we need to add a dummy color channel of lenght one using `expand_dims`. 
-    '''
-    if len(ar.shape) < 3:
-        ar = np.expand_dims(ar, axis=2)
-    return array_to_img(ar)
+    return arr
 
-def create_feature_label_pair(size=24, grayscale=True, ggsave_args={}):
+def create_feature_label_pair(size=24, grayscale=True, resize_to=None, ggtheme_args={}, ggsave_args={}):
     '''
     Create a graph that plots random data into a bar graph of size `size`. 
 
@@ -46,7 +41,7 @@ def create_feature_label_pair(size=24, grayscale=True, ggsave_args={}):
                               'gas_usage': np.random.uniform(0,5, size=size)})
 
     gg = (
-        ggplot(plot_data) + geom_bar(aes(x='factor(hour)', y='gas_usage'), stat='identity') + scale_y_continuous()
+        ggplot(plot_data) + geom_bar(aes(x='factor(hour)', y='gas_usage'), stat='identity') + theme(**ggtheme_args)
     )
 
-    return [plot_data['gas_usage'], gg, ggplot_to_numpy_array(gg, grayscale=grayscale, ggsave_args=ggsave_args)]
+    return [plot_data['gas_usage'], gg, ggplot_to_numpy_array(gg, grayscale=grayscale, resize_to=resize_to, ggsave_args=ggsave_args)]
